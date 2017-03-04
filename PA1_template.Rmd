@@ -1,25 +1,169 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Activity monitoring data analysis"
+author: "Fan Mo"
+date: "3/4/2017"
+output:
+  html_document: default
+  keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
+########################################################################################
 
+Download and load the data into workspeace.
+```{r, cache=TRUE}
+library(ggplot2)
+Url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(Url,"activity.zip")
+unzip("activity.zip")
+activity <- read.csv("activity.csv")
+```
 
+Transform the data "Date" to the date format.
+```{r}
+activity$date <- as.Date(activity$date)
+```
 
 ## What is mean total number of steps taken per day?
+########################################################################################
 
+Plot histogram of the total number of steps taken each day.
+```{r}
+ggplot(activity, aes(x=date)) +
+        geom_histogram(aes(weight = steps), binwidth = 0.1) +
+        ylab("Total number of steps") +
+        xlab("Date") +
+        ggtitle("The total number of steps taken each day")
+```
 
+Calculate the mean and median number of steps taken each day.
+```{r}
+activitymean <- tapply(activity$steps, activity$date, FUN = mean, na.rm=TRUE)
+activitymean
+```
+We can see that the mean number of steps taken each day is under each date.
+
+```{r}
+activitymedian <- tapply(activity$steps, activity$date, FUN = median, na.rm=TRUE)
+activitymedian
+```
+We can see that the median number of steps taken each day is under each date.
 
 ## What is the average daily activity pattern?
+########################################################################################
 
+Make the time series plot of the 5-minute interval and the average number of steps taken, averaged across all days.
+```{r}
+activityint <- tapply(activity$steps, activity$interval, FUN = mean, na.rm = TRUE)
+activityint <- data.frame(interval = as.numeric(names(activityint)),
+                          meanstep = as.numeric(activityint))
+ggplot(activityint,aes(x=interval,y=meanstep)) +
+        geom_point(size=0.1) +
+        geom_line() +
+        ylab("Average number of steps") +
+        xlab("Interval") +
+        ggtitle("The average number of steps taken each day")
+```
 
+Calculate the maximum number of steps among those 5-minute interval.
+```{r}
+activityint$interval[(which(activityint$meanstep == max(activityint$meanstep)))]
+```
+We can see that this 5-minute interval contains the maximum number of steps.
 
 ## Imputing missing values
+########################################################################################
+
+Calculate the total number of missing values in the dataset.
+```{r}
+summary(activity$steps)[7]
+```
+We use the "summary" function to obtain the number of NAs in the dataset.
 
 
+Create a new dataset and filling in all of the missing values in the dataset using mean steps in the associated day.
+```{r}
+activityfill <- activity # creat a new dataset
+# create a dataframe to place the mean value
+activitymean <- data.frame(date = names(activitymean),
+                           meanstep = activitymean,
+                           state = rep("miss", times=length(activitymean)))
+for(i in 1:length(activityfill$steps)){
+        if(is.na(activityfill$steps[i])){
+                locatetemp <- which(as.Date(activitymean$date) == activityfill$date[i]) # locate the NA value
+                activityfill$steps[i] <- activitymean$meanstep[locatetemp] # inpute it using mean steps
+                if(is.nan(activityfill$steps[i])){activityfill$steps[i] = 0} # replace NAN value using "0" value
+        }
+}
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+Plot histogram of the total number of steps taken each day based on filled data.
+```{r}
+ggplot(activityfill, aes(x=date)) +
+        geom_histogram(aes(weight = steps), binwidth = 0.1) +
+        ylab("Total number of steps") +
+        xlab("Date") +
+        ggtitle("The total number of steps taken each day (missing data are filled)")
+```
+
+Calculate the mean and median number of steps taken each day based on filled data.
+```{r}
+activityfillmean <- tapply(activityfill$steps, activityfill$date, FUN = mean, na.rm=TRUE)
+activityfillmedian <- tapply(activityfill$steps, activityfill$date, FUN = median, na.rm=TRUE)
+```
+
+Campare the data before and after filling miss data.
+```{r}
+activityfillmean <- data.frame(date = names(activityfillmean),
+                               meanstep = activityfillmean,
+                               state = rep("fill", times=length(activityfillmean)))
+# create a data.frame to store the miss and filled value data
+activitycompmean <- rbind(activitymean, activityfillmean)
+activitycompmean$state <- as.character(activitycompmean$state)
+activitycompmean$date <- as.Date(activitycompmean$date)
+pd <- position_dodge(1) # set the position value in ggplot
+ggplot(activitycompmean, aes(x=date, y=meanstep, color=state, group=state)) +
+        geom_point(position = pd) +
+        geom_line(position = pd)
+```
+
+In the above figure, the points and lines of both miss data and filled data are very similar. The reason is that we used day's average steps that relate to the miss records and it do not affect the mean value of day's average steps. However, some of the NAs value are repleace.
+
+## Imputing missing values
+########################################################################################
+
+Creat a factor variable and add it in the "activityfill" dataframe.
+```{r}
+activityfill$week <- weekdays(activityfill$date) # transfer date to weekdays
+# repleace text "weekday"
+activityfill$week <- sub("Monday|Tuesday|Wednesday|Thursday|Friday","weekday",activityfill$week) 
+activityfill$week <- sub("Saturday|Sunday","weekend",activityfill$week) # repleace text "weekend"
+```
+
+Make the panel plot containing a time series plot of the 5-minute interval and the average number of steps taken, averaged across all weekday days or weekend days.
+```{r}
+# spilt weekday data and weekend data into two datasets
+activityfilllist <- split(activityfill,activityfill$week)
+# calculate mean steps per interval in both weekday datasets and weekend datasets
+activityweekdayint <- tapply(activityfilllist[[1]]$steps, activityfilllist[[1]]$interval, FUN=mean, na.rm=TRUE)
+activityweekendint <- tapply(activityfilllist[[2]]$steps, activityfilllist[[2]]$interval, FUN=mean, na.rm=TRUE)
+# create data.frame to contain the data
+activityweekdayint <- data.frame(interval = as.numeric(names(activityweekdayint)),
+                              meanstep = as.numeric(activityweekdayint),
+                              week = rep("weekday",times=length(activityweekdayint)))
+activityweekendint <- data.frame(interval = as.numeric(names(activityweekendint)),
+                                 meanstep = as.numeric(activityweekendint),
+                                 week = rep("weekend",times=length(activityweekendint)))
+# conbine the two data.frame into one
+activityweekint <- rbind(activityweekdayint,activityweekendint)
+# plot the figure
+ggplot(activityweekint,aes(x=interval,y=meanstep)) +
+        facet_grid(. ~ week) +
+        geom_point(size=0.1) +
+        geom_line() +
+        ylab("Average number of steps") +
+        xlab("Interval") +
+        ggtitle("The average number of steps taken each day")
+```
+
+We can see that people usually have more steps in weekend, compared to those in weekday.
