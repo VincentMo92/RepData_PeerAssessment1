@@ -29,25 +29,22 @@ activity$date <- as.Date(activity$date)
 
 Plot histogram of the total number of steps taken each day.
 ```{r}
-ggplot(activity, aes(x=date)) +
-        geom_histogram(aes(weight = steps), binwidth = 0.1) +
-        ylab("Total number of steps") +
-        xlab("Date") +
-        ggtitle("The total number of steps taken each day")
+library(ggplot2)
+activitysteps <- tapply(activity$steps, activity$date, FUN=sum, na.rm=TRUE)
+qplot(activitysteps, binwidth=1000, xlab="Total number of steps taken each day")
+
 ```
 
 Calculate the mean and median number of steps taken each day.
 ```{r}
-activitymean <- tapply(activity$steps, activity$date, FUN = mean, na.rm=TRUE)
-activitymean
+mean(activitysteps, na.rm=TRUE)
 ```
-We can see that the mean number of steps taken each day is under each date.
+We can see  the mean number of steps taken each day.
 
 ```{r}
-activitymedian <- tapply(activity$steps, activity$date, FUN = median, na.rm=TRUE)
-activitymedian
+median(activitysteps, na.rm=TRUE)
 ```
-We can see that the median number of steps taken each day is under each date.
+We can see  the median number of steps taken each day.
 
 ## What is the average daily activity pattern?
 ########################################################################################
@@ -85,6 +82,7 @@ Create a new dataset and filling in all of the missing values in the dataset usi
 ```{r}
 activityfill <- activity # creat a new dataset
 # create a dataframe to place the mean value
+activitymean <- tapply(activity$steps, activity$date, FUN = mean, na.rm=TRUE)
 activitymean <- data.frame(date = names(activitymean),
                            meanstep = activitymean,
                            state = rep("miss", times=length(activitymean)))
@@ -99,21 +97,20 @@ for(i in 1:length(activityfill$steps)){
 
 Plot histogram of the total number of steps taken each day based on filled data.
 ```{r}
-ggplot(activityfill, aes(x=date)) +
-        geom_histogram(aes(weight = steps), binwidth = 0.1) +
-        ylab("Total number of steps") +
-        xlab("Date") +
-        ggtitle("The total number of steps taken each day (missing data are filled)")
+activityfillsteps <- tapply(activityfill$steps, activityfill$date, FUN=sum)
+qplot(activityfillsteps, binwidth=1000, xlab="Total number of steps taken each day")
+
 ```
 
-Calculate the mean and median number of steps taken each day based on filled data.
+Calculate the mean and median number of steps taken each day.
 ```{r}
-activityfillmean <- tapply(activityfill$steps, activityfill$date, FUN = mean, na.rm=TRUE)
-activityfillmedian <- tapply(activityfill$steps, activityfill$date, FUN = median, na.rm=TRUE)
+mean(activityfillsteps)
+median(activityfillsteps)
 ```
 
 Campare the data before and after filling miss data.
 ```{r}
+activityfillmean <- tapply(activityfill$steps, activityfill$date, FUN = mean, na.rm=TRUE)
 activityfillmean <- data.frame(date = names(activityfillmean),
                                meanstep = activityfillmean,
                                state = rep("fill", times=length(activityfillmean)))
